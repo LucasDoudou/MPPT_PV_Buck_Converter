@@ -1,0 +1,25 @@
+Improving the tracking efficiency:
+
+Software:
+
+1. Precision of D: more precise when approaching MPPT:
+
+2. Give more response time for sensing when approaching MPPT (Dealy_US)
+
+3. Calculate the avg of Pout when approaching MPPT
+
+4. (might not be useful) Use integration controlling method
+
+Hardware: 
+
+1. Choose switches with low Rds,on (As long as the voltage spikes not exceeding the max ratings (leave at least 25%-50% space for spikes))
+
+2. Thermal management Rds,on, Coss... (strongly correlated to deadtime -> Pov)
+
+3. Gate drive losses [have not calculated]
+
+3. Qrr (reverse recovery) & Coss [comparatively small]
+
+4. AC loss <-> winding loss [Inductor]
+
+5. LDO and 1.25V regulators -- unavoidable

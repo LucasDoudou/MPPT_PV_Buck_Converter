@@ -1,0 +1,83 @@
+IRFI1310NPbF(24A)
+Rds,on = 0.036,
+Coss = 450pF
+Qrr = 1.2uC
+tr = 56ns
+tf = 40ns
+
+IPAN60R125PFD7S(66A)
+Rds,on = 0.125,
+Coss = 28pF
+Qrr = 0.45uC
+tr = 13ns
+tf = 6ns
+
+STB28N65M2(20A)
+Rds,on = 0.18,
+Coss = 60pF
+Qrr = 0.45uC
+tr = 10ns
+tf = 8.8ns
+
+STB13N80K5(12A)
+Rds,on = 0.45,
+Coss = 50pF
+Qrr = 5.7uC
+tr = 16ns
+tf = 16ns
+
+FQPF47P06(30A)
+Rds,on = 0.026,
+Coss = 1300pF
+Qrr = 0.55uC
+tr = 450ns
+tf = 195ns
+
+STF8NK100Z(6.5A,1000V)
+Rds,on = 1.65
+Coss = 174pF
+Qrr = 5.3uC
+tr = 19ns
+tf = 30ns
+
+XP6NA2R4IT(93A)
+Rds,on = 0.0024
+Coss = 1160pF
+Qrr = 100nC
+tr = 91ns
+tf = 110ns
+
+MCPF90N12A(90A)
+Rds,on = 0.009
+Coss = 430pF
+Qrr = 176nC
+tr = 8.7ns
+tf = 11ns
+
+FDP4D5N10C(128A)
+Rds,on = 0.004
+Coss = 2330pF
+Qrr = 258nC
+tr = 49ns
+tf = 13ns
+
+FDPF035N06B(88A)
+Rds,on = 0.00291
+Coss = 1685pF
+Qrr = 78nC
+tr = 33ns
+tf = 23ns
+
+MCPF80P06Y(80A)
+Rds,on = 0.0068
+Coss = 936pF
+Qrr = 85nC
+tr = 26ns
+tf = 59ns
+
+IPA037N08N3 G(75A)
+Rds,on = 0.0037
+Coss = 1640pF
+Qrr = 130nC
+tr = 49ns
+tf = 13ns

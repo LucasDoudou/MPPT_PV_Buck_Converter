@@ -1,0 +1,42 @@
+Check-off:
+(a) Describe how your efficiency measurements compare to efficiencies you expect for each operating point; 
+(b) Describe likely source(s) of any discrepancies, including which losses you have observed to be higher than predicted and how you know; 
+(c) Discuss your ideas for improving these losses and/or improving your
+calculations to account for them. Then, tell us 
+(d) how much dedicated time you spent on this lab, and 
+(e) if any other student(s) in the lab helped you, and who.
+
+a) Efficiency in simulation (nominal): 98.95%; by hand calculation: 97.5%
+
+Hand calculation:
+P_cond = I^2*Rds_on = 1.67W
+P_ov = 1/2*Vin*IL*tov*fsw = 0.1167W
+P_coss = Ceq,Q*Vin^2 = 0.0173w
+P_gate = 1/2*Cg*Vdrive^2*f = 0.67W   = 1/2*QG*Vdrive*f
+
+Without considering:
+Core loss(ac loss) + Inductor_ESR(winding loss) + loss of efficiency due to ripples
+
+Thermal problems (Rds_on, Ceq,Q, Cg increase) -> leads to the power loss
+
+b) Inductor winding loss + core loss(f high); Cap ESR,(paralleled resistance), ESL; 
+with thermal management worsens(density),[MOSFET] Rds_on increases, Coss increases; 
+overlap losses?
+
+In PCB design: power stage resistance large? Parasitic resistances of MOS
+
+c) For my poor thermal management, which is basically because of the density and inappropriate placement of MOS and heat sink; For the efficiency not as expected, mainly because of my inductance and capacitance are far more than the minimum values (and thermal problems)
+
+
+
+
+
+
+
+
+
+
+
+
+ 
+

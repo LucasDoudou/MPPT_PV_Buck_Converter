@@ -1,0 +1,234 @@
+ // Measure var. MPPT_power, MPPT_duty, flag_track_begin, flag_sweep
+
+ // IN THIS VERSION: 2 control variables: flag_track_begin, flag_sweep    4/16/2025 latest version
+ // ####flag_track_begin####: starts the whole tracking MPPT program
+ // ####flag_sweep####: 0-use perturb to find MPPT; 1-sweep first, locate around MPPT and perturb slowly
+
+ #include "F28x_Project.h" // this includes all headers needed to interact with peripherals (ADC, EPWM, etc.)
+ #include "cpu1_init.h"
+
+ // #define ADC_VREF 3.0
+ // #define ADC_MAX 4095.0  // 12-bit ADC max value
+
+ volatile Uint16 adc_raw_vout; // 0->4095
+ volatile Uint16 adc_raw_iout;
+ volatile float adc_vout; // 0->3
+ volatile float adc_iout; // 0->3
+
+ volatile Uint16 duty_cmp = EPWM_CMP_INIT;
+ volatile float duty = 0.5;
+
+ volatile Uint16 deadtime_rise = EPWM_DEADTIME;
+ volatile Uint16 deadtime_fall = EPWM_DEADTIME;
+
+
+ //Simple Perturb and Observe Algorithm
+
+float MPP_power = 0; //Maximum power point power
+float MPP_Duty, MPP_Vin; //Maximum power point duty cycle and input voltage
+
+float duty_step = .005f; //Duty cycle step size
+// float duty = 0.5f; //Start MPPT Search at the largest panel voltage of 24V
+float duty_max = 0.75f; //Maximum duty cycle to search over
+uint32_t wait_time = 10e3; //amount of time to wait after duty cycle update [us]
+uint32_t wait_time_long = 1e5;// Insert a delay longer than the switching period to ensure that the duty ratio
+//   is updated at most once per switching period (we are implementing single-update PWM)
+
+float iout, vout, pout, iin, vin, pin, eff, pout_avg;
+float pout_avg_list[] = {0, 0, 0, 0, 0};
+int pout_list_len = sizeof(pout_avg_list) / sizeof(pout_avg_list[0]);
+// uint32_t adc_iout, adc_vout, adc_iin, adc_vin; //Raw ADC values
+// float iout_gain, vout_gain, iin_gain, vin_gain;
+volatile int stop_search = 0; //Flag to stop searching for MPPT
+volatile int Perturb_Observe = 0; //Flag to enable perturb and observe
+float duty_inc, duty_dec; // For perturbs
+volatile int flag_D_inc = 0; // Flag to duty increase
+volatile int flag_D_dec = 0; // Flag to duty decrease
+volatile int flag_track_begin = 0; // Flag to begin tracking
+volatile int flag_sweep = 0; // Flag to do sweeping
+
+volatile int cycle5_num = 0;
+
+int main(void)
+{
+    InitSysCtrl(); // Initialize SYSCTL (PLL, Watchdog, etc.)
+
+#ifdef LAUNCHPAD // include this define in project settings if using a LaunchPad
+    EALLOW;
+    ClkCfgRegs.PERCLKDIVSEL.bit.EPWMCLKDIV = 0; // remove /2 clock division for LaunchPad to make calculations consistent with ControlCard
+    EDIS;
+#endif
+
+    InitGpio(); // Initialize GPIO register states
+
+    configure_GPIO(); // configure GPIO settings
+
+    DINT;         // Disable ST1.INTM
+    IER = 0x0000; // Disable CPU interrupts
+    IFR = 0x0000; // Clear all CPU interrupt flags
+
+    InitPieCtrl();      // Initialize PIE control registers
+    InitPieVectTable(); // Initialize PIE vector table to default ISR locations...
+                        // This will typically be overwritten later
+
+    configure_ADC();  // configure ADC settings
+    configure_EPWM(); // configure EPWM settings
+
+    while (1) // main circuit setup
+    {
+        // count cycles# - loop 0,1,2,3,4
+        cycle5_num++;
+        if (cycle5_num > 4){
+            cycle5_num = 0;
+        }
+
+        // 2 Mode ctrl:
+        // For safety concern...
+        if (duty <= 0.5)
+        {
+            duty = 0.5;
+        }
+        else if (duty >= 0.75)
+        {
+            duty = 0.75;
+        }
+        // Refresh duty&duty_cmp
+        duty_cmp = EPWM_TBPRD * duty;
+        EPwm1Regs.CMPA.bit.CMPA = duty_cmp;
+
+        EPwm1Regs.DBRED.bit.DBRED = deadtime_rise;
+        EPwm1Regs.DBFED.bit.DBFED = deadtime_fall;
+
+        // ADC read and conversion
+        adc_raw_vout = AdcaResultRegs.ADCRESULT0;
+        adc_vout = ((float)adc_raw_vout / 4095.0) * 3.0 * 11; // float from 12-bit value to 3V
+        adc_raw_iout = AdccResultRegs.ADCRESULT0;
+        adc_iout = ((float)adc_raw_iout * 0.0059 - 10.0928);
+
+        DELAY_US(wait_time); 
+
+        if (!flag_track_begin){
+            stop_search = 0;
+            Perturb_Observe = 0;
+        }
+
+        if (!stop_search && flag_track_begin)
+        {
+            if (flag_sweep){
+                //Sweep over the entire duty cycle range to find the maximum power point
+                //Wait some time to allow the system to settle
+                DELAY_US(wait_time);
+                //Done: Measure Output Power
+                pout = adc_iout * adc_vout;
+                //update maximum power point
+                if (pout > MPP_power){
+                    MPP_Duty = duty;
+                    MPP_power = pout;
+                    MPP_Vin = vin;
+                }
+                //finished search, return to MPP
+                if (duty >= duty_max){
+                    duty = MPP_Duty;
+                    stop_search = 1;
+                    Perturb_Observe = 1;
+                }
+                //Continue to search for MPP
+                else{
+                    duty += duty_step;
+                }
+            }
+            else{
+                DELAY_US(wait_time);
+                //Done: Measure Output Power
+                pout = adc_iout * adc_vout;
+                MPP_Duty = duty;
+                MPP_power = pout;
+                stop_search = 1;
+                Perturb_Observe = 1;
+            }
+        }
+
+        // Perturb Observe: give a perturb to see changes
+        else if(Perturb_Observe && flag_track_begin){
+            //Done: Implement Perturb and Observe Algorithm
+            //The perturb and observe algorithm first _perturbs_ the current operating point (via a change in duty cycle) and _observes_ if the perturbation yielded an increase or decrease in output power
+            //First measure the current output power and compare it to the previously measured output power
+            //If the current power is higher than the previous power, and the current duty cycle is larger than the previous duty cycle, make another increase in duty cycle
+            //The algorithm should handle both cases where the maximum power requires an increase or decrease in duty cycle
+            //Your controller should be able to continually find the maximum power point of the PV panel (even if the incoming solar power changes)
+
+            // Refresh duty&duty_cmp ***current is MPPT***
+            duty = MPP_Duty;
+            duty_cmp = EPWM_TBPRD * duty;
+            EPwm1Regs.CMPA.bit.CMPA = duty_cmp;
+
+            // when sweeping and found MPPT, perturbation can slow down;
+            // When only using Perturbation to get MPPT, delay may be shorter;
+            if (flag_sweep){
+                DELAY_US(wait_time_long);
+            }
+            else{
+                DELAY_US(wait_time);
+            }
+
+            // ADC read and conversion
+            adc_raw_vout = AdcaResultRegs.ADCRESULT0;
+            adc_vout = ((float)adc_raw_vout / 4095.0) * 3.0 * 11; // float from 12-bit value to 3V
+            adc_raw_iout = AdccResultRegs.ADCRESULT0;
+            adc_iout = ((float)adc_raw_iout * 0.0059 - 10.0928);
+
+            MPP_power = adc_iout * adc_vout; // Set current status as MPPT ****
+
+            duty_inc = MPP_Duty + duty_step;
+            duty_dec = MPP_Duty - duty_step;
+
+            // Test duty up and down -- Always down, up, down, up...
+            if (flag_D_dec == 0 && flag_D_inc == 0){
+                duty = duty_dec;
+                flag_D_dec = 1;
+            }
+            else if (flag_D_dec == 1 && flag_D_inc == 0){
+                duty = duty_inc;
+                flag_D_inc = 1;
+            }
+            else if (flag_D_dec == 1 && flag_D_inc == 1){
+                flag_D_dec = 0;
+                flag_D_inc = 0;
+            }
+
+            // Refresh duty&duty_cmp
+            duty_cmp = EPWM_TBPRD * duty;
+            EPwm1Regs.CMPA.bit.CMPA = duty_cmp;
+
+            if (flag_sweep){
+                DELAY_US(wait_time_long);
+            }
+            else{
+                DELAY_US(wait_time);
+            }
+
+            // ADC read and conversion
+            adc_raw_vout = AdcaResultRegs.ADCRESULT0;
+            adc_vout = ((float)adc_raw_vout / 4095.0) * 3.0 * 11; // float from 12-bit value to 3V
+            adc_raw_iout = AdccResultRegs.ADCRESULT0;
+            adc_iout = ((float)adc_raw_iout * 0.0059 - 10.0928);
+
+            // Determine the max power + refresh
+            pout = adc_iout * adc_vout;
+            if (pout > MPP_power){
+                MPP_power = pout;
+                MPP_Duty = duty;
+            }
+
+            // Calculate Pout_avg in 5 cycles
+            pout_avg_list[cycle5_num] = MPP_power;
+            pout_avg = 0;
+            for (int i = 0; i < pout_list_len; i++){
+                pout_avg += pout_avg_list[i];
+            }
+            pout_avg /= pout_list_len;
+        }
+        //Add code to update EPWM register
+    }
+}
+
