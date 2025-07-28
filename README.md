@@ -18,6 +18,7 @@ Key Features:
 - Implemented using the Texas Instruments C2000 microcontroller for real-time PWM-based control
 - Fully custom PCB layout
 - Efficiency Calculation: +15% at 4 corners (50W/100W + 16V/24V) and +40% at nominal point (100W + 20V)
+- This project utilizes a selection of off-the-shelf and cost-effective components, 61.06$ per board
 
 License:
 This project is intended for academic and educational purposes only.  
